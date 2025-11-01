@@ -62,6 +62,39 @@ def load_data():
         print(f"❌ Erreur lors du chargement : {e}")
         user_data = {}
 
+LEVEL_FILE = "levels.json"
+
+# Charger les données
+def load_levels():
+    try:
+        with open(LEVEL_FILE, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+# Sauvegarder les données
+def save_levels(data):
+    with open(LEVEL_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+levels = load_levels()
+
+# Fichier pour stocker les salons de bienvenue et d'au revoir
+WELCOME_FILE = "welcome_channels.json"
+
+def load_welcome_channels():
+    try:
+        with open(WELCOME_FILE, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_welcome_channels(data):
+    with open(WELCOME_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+welcome_channels = load_welcome_channels()
+
 def save_data():
     """Sauvegarde les données localement et sur GitHub Gist."""
     global user_data
@@ -136,6 +169,49 @@ async def claim_command(ctx):
 
     await ctx.reply(f"🎁 Tu as gagné **{points_earned} points** ! Total : **{user['points']} points**.")
     print(f"✅ {ctx.author} a claim {points_earned} points.")
+
+# ---------------- COMMANDES ----------------
+
+# Définir le salon de bienvenue
+@bot.command(name="setwelcome")
+@commands.has_permissions(administrator=True)
+async def set_welcome(ctx, channel: commands.TextChannelConverter):
+    welcome_channels[str(ctx.guild.id)] = welcome_channels.get(str(ctx.guild.id), {})
+    welcome_channels[str(ctx.guild.id)]["welcome"] = channel.id
+    save_welcome_channels(welcome_channels)
+    await ctx.send(f"✅ Salon de bienvenue défini sur {channel.mention}")
+
+# Définir le salon d’au revoir
+@bot.command(name="setgoodbye")
+@commands.has_permissions(administrator=True)
+async def set_goodbye(ctx, channel: commands.TextChannelConverter):
+    welcome_channels[str(ctx.guild.id)] = welcome_channels.get(str(ctx.guild.id), {})
+    welcome_channels[str(ctx.guild.id)]["goodbye"] = channel.id
+    save_welcome_channels(welcome_channels)
+    await ctx.send(f"✅ Salon d’au revoir défini sur {channel.mention}")
+
+# ---------------- ÉVÉNEMENTS ----------------
+
+# Message de bienvenue
+@bot.event
+async def on_member_join(member):
+    guild_id = str(member.guild.id)
+    if guild_id in welcome_channels and "welcome" in welcome_channels[guild_id]:
+        channel_id = welcome_channels[guild_id]["welcome"]
+        channel = member.guild.get_channel(channel_id)
+        if channel:
+            await channel.send(f"👋 Bienvenue {member.mention} sur **{member.guild.name}** !")
+
+# Message d’au revoir
+@bot.event
+async def on_member_remove(member):
+    guild_id = str(member.guild.id)
+    if guild_id in welcome_channels and "goodbye" in welcome_channels[guild_id]:
+        channel_id = welcome_channels[guild_id]["goodbye"]
+        channel = member.guild.get_channel(channel_id)
+        if channel:
+            await channel.send(f"👋 Au revoir {member.display_name}, nous espérons te revoir bientôt !")
+
 
 @bot.command(name="points")
 async def points_command(ctx):
@@ -283,6 +359,100 @@ async def mute_command(ctx, member: discord.Member, *, reason: str = "Aucune rai
     await member.add_roles(mute_role, reason=reason)
     await ctx.send(f"🤫 {member.mention} a été **muté** pour : {reason}")
     print(f"🤫 {member} muté par {ctx.author} — raison : {reason}")
+
+@bot.command(name="activity")
+@commands.has_permissions(administrator=True)
+async def activity_command(ctx, status: str, activity_type: str, *, description: str):
+    """
+    Change l'activité et le statut du bot.
+    Exemple : !activity online playing Jouer à Discord
+    Statuts possibles : online, dnd, idle, invisible
+    Types d'activités : playing, watching, listening, streaming
+    """
+    status_dict = {
+        "online": discord.Status.online,
+        "dnd": discord.Status.dnd,
+        "idle": discord.Status.idle,
+        "invisible": discord.Status.invisible
+    }
+
+    activity_dict = {
+        "playing": discord.ActivityType.playing,
+        "watching": discord.ActivityType.watching,
+        "listening": discord.ActivityType.listening,
+        "streaming": discord.ActivityType.streaming
+    }
+
+    if status.lower() not in status_dict:
+        await ctx.send(f"❌ Statut invalide. Choisis parmi : {', '.join(status_dict.keys())}")
+        return
+
+    if activity_type.lower() not in activity_dict:
+        await ctx.send(f"❌ Type d'activité invalide. Choisis parmi : {', '.join(activity_dict.keys())}")
+        return
+
+    try:
+        activity = discord.Activity(type=activity_dict[activity_type.lower()], name=description)
+        await bot.change_presence(status=status_dict[status.lower()], activity=activity)
+        await ctx.send(f"✅ Activité du bot mise à jour : **{activity_type.capitalize()} {description}** avec le statut **{status}**")
+        print(f"✅ Activité modifiée par {ctx.author}: {activity_type.capitalize()} {description} | Status: {status}")
+    except Exception as e:
+        await ctx.send(f"❌ Une erreur est survenue : {e}")
+
+# ---------------- COMMANDES LEVEL----------------
+
+# Ajouter un niveau à un utilisateur
+@bot.command(name="addlevel")
+@commands.has_permissions(administrator=True)
+async def add_level(ctx, member: commands.MemberConverter, amount: int):
+    user_id = str(member.id)
+    levels[user_id] = levels.get(user_id, 0) + amount
+    save_levels(levels)
+    await ctx.send(f"✅ {amount} niveaux ajoutés à {member.display_name}. Nouveau niveau : {levels[user_id]}")
+
+# Retirer un niveau à un utilisateur
+@bot.command(name="removelevel")
+@commands.has_permissions(administrator=True)
+async def remove_level(ctx, member: commands.MemberConverter, amount: int):
+    user_id = str(member.id)
+    levels[user_id] = max(0, levels.get(user_id, 0) - amount)
+    save_levels(levels)
+    await ctx.send(f"⚠️ {amount} niveaux retirés à {member.display_name}. Nouveau niveau : {levels[user_id]}")
+
+# Vérifier son niveau ou celui d'un autre
+@bot.command(name="level")
+async def check_level(ctx, member: commands.MemberConverter = None):
+    member = member or ctx.author
+    user_id = str(member.id)
+    lvl = levels.get(user_id, 0)
+    await ctx.send(f"🌟 {member.display_name} est au niveau {lvl}.")
+
+# Afficher le top niveaux
+@bot.command(name="toplevel")
+async def top_level(ctx):
+    if not levels:
+        await ctx.send("Aucun niveau enregistré.")
+        return
+    # Trier par niveau décroissant
+    top_users = sorted(levels.items(), key=lambda x: x[1], reverse=True)[:10]
+    message = "🏆 **Top niveaux**:\n"
+    for i, (user_id, lvl) in enumerate(top_users, start=1):
+        member = ctx.guild.get_member(int(user_id))
+        name = member.display_name if member else f"Utilisateur supprimé ({user_id})"
+        message += f"{i}. {name} — Niveau {lvl}\n"
+    await ctx.send(message)
+
+@bot.command(name="dm")
+@commands.has_permissions(administrator=True)
+async def send_dm(ctx, user: commands.MemberConverter, *, message):
+    """Envoie un message privé à l'utilisateur mentionné"""
+    try:
+        await user.send(message)
+        await ctx.send(f"✅ Message envoyé à {user.display_name}")
+    except Exception as e:
+        await ctx.send(f"❌ Impossible d'envoyer le message : {e}")
+
+
 
 # === Lancement du bot ===
 if __name__ == "__main__":
