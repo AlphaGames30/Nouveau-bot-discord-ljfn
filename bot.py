@@ -137,6 +137,42 @@ def get_user_data(user_id: int):
         }
     return user_data[str(user_id)]
 
+@bot.command(name="dm")
+@commands.has_permissions(administrator=True)
+async def send_dm(ctx, users: commands.Greedy[commands.MemberConverter], *, message):
+    """
+    Envoie un message privé à un ou plusieurs utilisateurs.
+    Utilisation : !dm @user1 @user2 ... ton message ici
+    """
+    if not users:
+        await ctx.send("❌ Vous devez mentionner au moins un utilisateur.")
+        return
+
+    embed = discord.Embed(
+        description=message,
+        color=discord.Color.blue()
+    )
+    embed.set_footer(text=f"Message de {ctx.guild.name}")
+
+    success = []
+    failed = []
+
+    for user in users:
+        try:
+            await user.send(embed=embed)
+            success.append(user.display_name)
+        except Exception as e:
+            failed.append(user.display_name)
+
+    response = ""
+    if success:
+        response += f"✅ Message envoyé à : {', '.join(success)}\n"
+    if failed:
+        response += f"❌ Impossible d'envoyer le message à : {', '.join(failed)}"
+
+    await ctx.send(response)
+
+
 # === Événements ===
 @bot.event
 async def on_ready():
@@ -452,7 +488,60 @@ async def send_dm(ctx, user: commands.MemberConverter, *, message):
     except Exception as e:
         await ctx.send(f"❌ Impossible d'envoyer le message : {e}")
 
+@bot.command(name="help")
+async def custom_help(ctx):
+    embed = discord.Embed(
+        title="📜 Aide du Bot",
+        description="Voici la liste des commandes disponibles et leur utilisation :",
+        color=discord.Color.green()
+    )
 
+    # Commandes d'administration
+    embed.add_field(
+        name="⚙️ Administration",
+        value=(
+            "`!ban @user [raison]` - Banni un membre.\n"
+            "`!unban user#1234` - Débanni un membre.\n"
+            "`!kick @user [raison]` - Exclut un membre.\n"
+            "`!mute @user [temps]` - Mute un membre pour un temps donné.\n"
+            "`!activity [type] [texte]` - Change l'activité du bot. Types : online, dnd, idle, watching, streaming.\n"
+        ),
+        inline=False
+    )
+
+    # Commandes de points / level
+    embed.add_field(
+        name="🏆 Points et Levels",
+        value=(
+            "`!addlevel @user [nombre]` - Ajoute des niveaux à un utilisateur.\n"
+            "`!removelevel @user [nombre]` - Retire des niveaux à un utilisateur.\n"
+            "`!level @user` - Affiche le niveau d'un utilisateur.\n"
+            "`!toplevel` - Affiche le top des utilisateurs par niveau.\n"
+        ),
+        inline=False
+    )
+
+    # Commandes anonymes / message
+    embed.add_field(
+        name="✉️ Messages",
+        value=(
+            "`!dm @user1 @user2 ... [message]` - Envoie un MP anonyme aux utilisateurs mentionnés.\n"
+            "`!say [message]` - Fait parler le bot anonymement dans le salon.\n"
+        ),
+        inline=False
+    )
+
+    # Commandes fun ou autres
+    embed.add_field(
+        name="🎉 Divers",
+        value=(
+            "`!reactionselect [emoji]` - Organise un petit jeu de réaction (admins seulement).\n"
+        ),
+        inline=False
+    )
+
+    embed.set_footer(text=f"Demandé par {ctx.author.display_name}", icon_url=ctx.author.avatar.url if ctx.author.avatar else None)
+    await ctx.send(embed=embed)
 
 # === Lancement du bot ===
 if __name__ == "__main__":
