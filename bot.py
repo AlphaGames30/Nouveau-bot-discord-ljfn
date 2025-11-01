@@ -28,6 +28,10 @@ user_data = {}
 # === Flask pour garder le bot en ligne ===
 app = Flask(__name__)
 
+@app.route('/health')
+def health():
+    return "OK", 200
+
 @app.route('/')
 def home():
     return "✅ Bot Discord actif et en ligne."
