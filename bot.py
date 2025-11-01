@@ -338,64 +338,6 @@ async def mute_command(ctx, member: discord.Member, *, reason: str = "Aucune rai
     await ctx.send(f"🤫 {member.mention} a été **muté** pour : {reason}")
     print(f"🤫 {member} muté par {ctx.author} — raison : {reason}")
 
-### 🔨 Commandes de modération ###
-
-@bot.command(name="ban")
-@commands.has_permissions(ban_members=True)
-async def ban_command(ctx, member: discord.Member, *, reason: str = "Aucune raison spécifiée"):
-    """Bannit un membre du serveur."""
-    try:
-        await member.ban(reason=reason)
-        await ctx.send(f"🔨 {member.mention} a été **banni** pour : {reason}")
-        print(f"🔨 {member} banni par {ctx.author} — raison : {reason}")
-    except Exception as e:
-        await ctx.send(f"❌ Impossible de bannir {member.mention} : {e}")
-
-@bot.command(name="unban")
-@commands.has_permissions(ban_members=True)
-async def unban_command(ctx, *, username: str):
-    """Débannit un membre du serveur (nom#tag)."""
-    banned_users = await ctx.guild.bans()
-    name, discriminator = username.split("#")
-
-    for ban_entry in banned_users:
-        user = ban_entry.user
-        if (user.name, user.discriminator) == (name, discriminator):
-            await ctx.guild.unban(user)
-            await ctx.send(f"✅ {user.mention} a été **débanni**.")
-            print(f"♻️ {user} débanni par {ctx.author}")
-            return
-
-    await ctx.send(f"❌ Utilisateur `{username}` introuvable dans la liste des bannis.")
-
-@bot.command(name="kick")
-@commands.has_permissions(kick_members=True)
-async def kick_command(ctx, member: discord.Member, *, reason: str = "Aucune raison spécifiée"):
-    """Expulse un membre du serveur."""
-    try:
-        await member.kick(reason=reason)
-        await ctx.send(f"👢 {member.mention} a été **exclu** pour : {reason}")
-        print(f"👢 {member} exclu par {ctx.author} — raison : {reason}")
-    except Exception as e:
-        await ctx.send(f"❌ Impossible d’exclure {member.mention} : {e}")
-
-@bot.command(name="mute")
-@commands.has_permissions(manage_roles=True)
-async def mute_command(ctx, member: discord.Member, *, reason: str = "Aucune raison spécifiée"):
-    """Mute un membre (lui retire la permission d’écrire)."""
-    guild = ctx.guild
-    mute_role = discord.utils.get(guild.roles, name="Muted")
-
-    if not mute_role:
-        # Crée le rôle s’il n’existe pas
-        mute_role = await guild.create_role(name="Muted", reason="Création automatique du rôle de mute")
-        for channel in guild.channels:
-            await channel.set_permissions(mute_role, send_messages=False, speak=False)
-
-    await member.add_roles(mute_role, reason=reason)
-    await ctx.send(f"🤫 {member.mention} a été **muté** pour : {reason}")
-    print(f"🤫 {member} muté par {ctx.author} — raison : {reason}")
-
 @bot.command(name="activity")
 @commands.has_permissions(administrator=True)
 async def activity_command(ctx, status: str, activity_type: str, *, description: str):
