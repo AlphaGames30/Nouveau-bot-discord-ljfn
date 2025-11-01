@@ -137,7 +137,7 @@ def get_user_data(user_id: int):
         }
     return user_data[str(user_id)]
 
-@bot.command(name="dm")
+@bot.command(name="send_dm")
 @commands.has_permissions(administrator=True)
 async def send_dm(ctx, users: commands.Greedy[commands.MemberConverter], *, message):
     """
